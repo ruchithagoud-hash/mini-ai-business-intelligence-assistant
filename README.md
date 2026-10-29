@@ -1,92 +1,198 @@
 # Mini AI Business Intelligence Assistant
 
-Ask questions about a sales dataset in plain English. Each answer is calculated from a
-SQLite database using approved SQL queries. **No API key is needed** for the basic demo.
+A simple AI-assisted Business Intelligence application that allows users to ask questions about sales data in plain English. It uses Python, Pandas, SQLite, FastAPI, and Streamlit to process sales data and present insights through answers, tables, and charts.
+
+**No API key is required for the basic demo.**
 
 ## Architecture
 
-```
-Streamlit UI (app.py) --HTTP--> FastAPI (main.py) --> analytics.py --> SQLite (read-only)
-                                                          ^
-data/sales_data.csv --> db.py (validate, clean, load) ----+  data/sales.db
+```text
+Sales CSV
+   |
+   v
+db.py (Data validation, cleaning and loading)
+   |
+   v
+SQLite Database (sales.db)
+   |
+   v
+analytics.py (Question interpretation and approved SQL queries)
+   |
+   v
+FastAPI (main.py)
+   |
+   v
+Streamlit UI (app.py)
 ```
 
-| File | Role |
+## Project Structure
+
+| File | Description |
 |---|---|
-| `db.py` | Validates/cleans the CSV (Pandas) and writes the `sales` table; opens read-only connections |
-| `analytics.py` | Interprets the question, picks an **approved** query, runs it, writes the answer |
-| `main.py` | FastAPI: `GET /health`, `POST /ask` (Pydantic models) |
-| `app.py` | Streamlit chat-style UI with examples, tables and charts |
-| `test_app.py` | Pytest suite (uses a small temporary database, not your real data) |
+| `data/sales_data.csv` | Input sales dataset |
+| `db.py` | Validates and cleans data, then loads it into SQLite |
+| `analytics.py` | Interprets questions and executes approved SQL queries |
+| `main.py` | FastAPI backend with health-check and question-answering endpoints |
+| `app.py` | Streamlit interface for asking questions and viewing results |
+| `test_app.py` | Automated tests using Pytest |
+| `requirements.txt` | Python dependencies |
+| `AI_DEVELOPMENT_NOTES.md` | Notes about the development process and AI assistance |
 
-### How questions are answered
-1. **Interpret**: rule-based keywords by default. If `OPENAI_API_KEY` is set, an LLM may pick the
-   intent instead, but only from a fixed list. It never writes SQL. Any LLM failure falls back to the rules.
-2. **Query**: each intent maps to a fixed, parameterised SQL template.
-3. **Safety**: SQL is validated (single `SELECT` only; DROP/DELETE/UPDATE/INSERT/ALTER etc. rejected)
-   and run on a read-only SQLite connection (`mode=ro`). Questions containing destructive words or raw SQL are refused.
-4. **Answer**: the text is built from the returned rows, and the SQL is shown in the UI.
+## Features
 
-### Business rules
-- **Sales = Quantity x Unit_price - Discount_amount**, counting only `Completed` transactions (case-insensitive).
-- `Discount_amount` is treated as a **total amount off the whole transaction** (not per unit, not a percentage).
-  Check this against your data's meaning; if it is per unit, change `SALES_EXPR` in `analytics.py`.
-- Rows with a missing/invalid quantity or unit price are **excluded, never guessed**. A missing discount counts as 0.
-- Duplicate `Transaction_Id` rows are dropped (first kept). Unparseable dates become NULL (left out of monthly results).
-- The total-sales answer reports how many records were excluded.
+- Ask questions about sales data using natural language.
+- Calculate total sales from completed transactions.
+- Identify regions with the highest sales.
+- Find top-selling products.
+- Compare sales across product categories.
+- Analyze monthly sales trends.
+- Compare sales by sales channel.
+- Display results through a chat-style interface, tables, and charts.
+- Use a SQLite database for structured data storage.
+- Apply SQL validation and read-only database access.
+- Run automated tests to verify application behavior.
 
-## Setup (Windows PowerShell)
+## How It Works
+
+1. **Data preparation:** The application reads the sales CSV, validates fields, removes duplicate transaction IDs, and loads the cleaned records into SQLite.
+2. **Question interpretation:** A rule-based system identifies supported questions. An optional OpenAI model can help select an intent when configured.
+3. **Query execution:** Each supported intent maps to an approved, parameterized SQL query.
+4. **Security:** Queries are restricted to approved read-only operations. Destructive SQL statements are rejected.
+5. **Results:** The application calculates answers and displays the results in the Streamlit interface.
+
+## Business Rules
+
+- Sales are calculated as `Quantity × Unit_price − Discount_amount`.
+- Only completed transactions are included in sales calculations.
+- Missing or invalid quantities and unit prices are excluded rather than guessed.
+- Missing discounts are treated as zero.
+- Duplicate `Transaction_Id` records are removed, keeping the first occurrence.
+- Unparseable dates are excluded from monthly analysis.
+- The total-sales answer reports excluded records.
+
+**Note:** The calculation assumes `Discount_amount` represents the total discount for a transaction. Confirm this interpretation against the dataset before using the results for business decisions.
+
+## Technology Stack
+
+- **Programming language:** Python
+- **Data processing:** Pandas
+- **Database:** SQLite
+- **Backend API:** FastAPI
+- **Frontend:** Streamlit
+- **Validation:** Pydantic
+- **Testing:** Pytest
+- **Optional AI integration:** OpenAI API
+
+## Prerequisites
+
+- Python installed on your system
+- PowerShell or another terminal
+- Required Python packages listed in `requirements.txt`
+
+## Installation and Setup
+
+Open PowerShell in the project directory:
 
 ```powershell
-cd C:\Users\Ruchitha\Downloads\AI_BI_Assistant_Starter\ai_bi_assistant
-.\.venv\Scripts\Activate.ps1        # or your venv's activate script
+cd C:\Users\Ruchitha\Downloads\ai_bi_assistant\ai_bi_assistant
+```
+
+Activate your existing virtual environment:
+
+```powershell
+& "C:\Users\Ruchitha\.venv\Scripts\Activate.ps1"
+```
+
+Install the dependencies:
+
+```powershell
 pip install -r requirements.txt
-python db.py                        # builds data\sales.db, prints "Loaded records: 51"
 ```
 
-## Run
+Prepare the database:
 
-Terminal 1 (API):
 ```powershell
-uvicorn main:app --reload
+python db.py
 ```
-Check: http://127.0.0.1:8000/health and interactive docs at http://127.0.0.1:8000/docs
 
-Terminal 2 (UI):
+The script should report that 51 records were loaded.
+
+## Running the Application
+
+### 1. Start the FastAPI backend
+
+Open the first PowerShell terminal, activate the virtual environment, and run:
+
 ```powershell
-streamlit run app.py
+python -m uvicorn main:app --reload
 ```
-If the API is not running, the UI falls back to the local engine and says so.
 
-Quick API test:
+API endpoints:
+
+- Health check: http://127.0.0.1:8000/health
+- Interactive API documentation: http://127.0.0.1:8000/docs
+
+Keep this terminal running.
+
+### 2. Start the Streamlit interface
+
+Open a second PowerShell terminal, activate the same virtual environment, and run:
+
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/ask -ContentType "application/json" -Body '{"question":"What are the total sales?"}'
+cd C:\Users\Ruchitha\Downloads\ai_bi_assistant\ai_bi_assistant
+& "C:\Users\Ruchitha\.venv\Scripts\Activate.ps1"
+python -m streamlit run app.py
 ```
 
-### Optional LLM
-```powershell
-$env:OPENAI_API_KEY = "your-key"       # never commit keys
-$env:OPENAI_MODEL = "gpt-4o-mini"      # optional
-```
+Open http://localhost:8501 in your browser.
 
-## Example questions
+Keep both terminals running during the demo.
+
+## Example Questions
+
 - What are the total sales?
 - Which region has the highest sales?
-- What are the top-selling products? (or "top 3 products")
+- What are the top-selling products?
+- Show the top 3 products.
 - Compare sales across product categories.
 - Show monthly sales trends.
 - Compare sales by sales channel.
 
 ## Testing
+
+Run the automated test suite:
+
 ```powershell
 python -m pytest -v
 ```
-Tests cover totals, region, products, categories, months, unsupported questions, SQL-injection/destructive
-SQL, read-only access, CSV validation and the API. They need no internet or API key.
+
+The tests cover sales calculations, regional and product analysis, category comparisons, monthly trends, unsupported questions, SQL safety, database access, data validation, and API behavior.
+
+## Security Considerations
+
+- Database queries use read-only SQLite connections.
+- Only approved analysis queries are supported.
+- Parameterized queries help prevent SQL injection.
+- Destructive SQL operations are rejected.
+- API keys should be stored in environment variables and must never be committed to GitHub.
 
 ## Limitations
-- Only the six approved analyses are supported; other questions get a clear "unsupported" reply.
-- Keyword matching is simple (a question mixing several topics maps to the first match).
-- Currency is not assumed; amounts are shown as plain numbers.
-- Dates in ambiguous formats (e.g. 03/04/2025) are parsed month-first by Pandas.
-- `python db.py` replaces the `sales` table each time it runs.
+
+- Only the supported analysis types are available.
+- Simple keyword matching may not correctly interpret questions involving multiple topics.
+- Currency is not assumed; amounts are displayed as plain numbers.
+- Ambiguous dates may be interpreted according to Pandas date-parsing behavior.
+- Running `python db.py` rebuilds the sales table.
+- Results depend on the accuracy and meaning of the supplied dataset.
+
+## Future Enhancements
+
+- Support more natural-language questions.
+- Add additional business KPIs and filtering options.
+- Improve charts and dashboard customization.
+- Add more datasets and configurable data sources.
+- Expand automated testing and error handling.
+
+## Author
+
+Developed as a Mini AI Business Intelligence Assistant project for demonstrating data processing, SQL-based analytics, API development, and dashboard visualization.
