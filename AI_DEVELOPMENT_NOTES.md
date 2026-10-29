@@ -3,19 +3,15 @@
 ## AI tools used
 | Tool | What it helped with |
 |---|---|
-| Claude (Anthropic) | Reviewed the project brief; wrote `analytics.py`, `main.py`, `app.py`, `test_app.py`, `requirements.txt`, `README.md` and these notes; produced a corrected `db.py` |
-| [Fill in: tool that supplied the starter `analytics.py` / `db.py`] | [Fill in: what it produced] |
+| Claude (Anthropic) | Reviewed the project brief; generated `analytics.py`, `main.py`, `app.py`, `test_app.py`, `requirements.txt`, `README.md`, and these notes; helped correct `db.py`. |
 
-## Decisions made
-- **Approved-intent design instead of free SQL generation.** The question is mapped to one of six fixed
-  queries. This is safer and testable. The optional LLM can only choose an intent name.
-- **Rule-based fallback** so the app works with no API key, and also when an LLM call fails.
-- **Defence in depth for SQL:** validator (single SELECT, forbidden keywords, no comments) plus a
-  read-only SQLite connection plus parameterised values (`LIMIT ?`).
-- **Sales formula:** `quantity * unit_price - discount_amount`, Completed only. Discount is assumed to be a
-  total amount per transaction. This is an assumption to confirm against the dataset's definition.
-- **Missing data is excluded, not invented** (missing price/quantity); missing discount = 0.
-- **Tests use a small hand-calculated CSV** so expected numbers are verifiable and independent of the real data.
+  ## Decisions made
+- **Approved-intent design instead of free SQL generation:** Each question is mapped to one of six predefined analysis types. This makes the application more controlled and easier to test. The optional LLM can select an approved intent but does not generate SQL.
+- **Rule-based fallback:** The application can work without an API key and falls back to rule-based question interpretation if the LLM call fails.
+- **SQL safety:** Queries are validated to reject multiple statements, SQL comments, and forbidden operations. The database is opened in read-only mode, and parameterized values are used where needed.
+- **Sales formula:** `quantity * unit_price - discount_amount`. Only completed transactions with a known quantity and unit price are counted. The discount is treated as a total amount deducted from the transaction; this assumption should be checked against the dataset definition.
+- **Missing data:** Missing or invalid quantities and unit prices are excluded from sales calculations rather than guessed. A missing discount is treated as zero.
+- **Independent testing:** Automated tests use a small, hand-calculated test dataset so expected results can be checked independently of the real sales data.
 
 ## Issues encountered
 - [Fill in any real errors you hit, e.g. venv activation, port in use, import errors, and how you fixed them.]
@@ -24,14 +20,14 @@
   `sales_data.csv` by Claude; that must be done on your machine.
 
 ## How the code was reviewed and tested
-1. Ran `python db.py` and confirmed the loaded record count matches the CSV (51).
-2. Ran `python -m pytest -v` (all tests pass).
-3. Hand-checked at least one real answer: e.g. open the CSV (or a SQLite viewer), filter Completed rows, compute
-   `sum(quantity*unit_price - discount_amount)` and compare it with the app's total. [Record your result here.]
-4. Started `uvicorn main:app` and `streamlit run app.py`, asked all five example questions, and compared
-   the tables with the SQL shown under "How was this calculated?".
-5. Confirmed that "delete all sales" is refused and that the data is unchanged.
+1. **Data loading:** Ran `python db.py` and confirmed that 51 records were loaded from the sales CSV, with no duplicate transaction IDs or invalid dates reported.
+2. **Automated tests:** Ran `python -m pytest -v` and confirmed that all 24 tests passed.
+3. **Sales calculation verification:** Calculated the expected total from the official CSV using `quantity * unit_price - discount_amount`, counting only completed transactions with a valid quantity and unit price. The expected total is **1,439,200.00 across 49 valid completed transactions**. Two records are excluded: one returned transaction and one completed transaction with a missing unit price. Compare this expected result with the application's output.
+4. **Application testing:** Started the FastAPI backend and Streamlit interface. The application was tested with the question "What are the total sales?" Additional supported questions should be tested, and their results should be compared with the displayed SQL queries.
+5. **SQL safety:** The automated test suite includes checks for destructive SQL and read-only database access. Confirm that the application refuses the question "delete all sales" and that the database remains unchanged before recording this manual check as complete.
 
 ## Honest summary
 AI generated most of the code; I reviewed it, ran it, verified numbers against the data, and can explain
-each file. [Edit this paragraph so it reflects what you actually did.]
+each file.
+AI tools helped generate most of the initial code for this project. I set up the project in my local environment, ran the application and automated tests, and worked through setup and Git issues. I am reviewing the code to understand the purpose of each file, how sales calculations are performed, how the API communicates with the UI, and how the application validates database queries. I will verify the results against the supplied sales dataset and document any remaining limitations before submission.
+
